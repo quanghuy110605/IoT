@@ -60,7 +60,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          "Huy Smart Home Control",
+          "Smart Home Control",
           style: TextStyle(
             color: txt,
             fontWeight: FontWeight.bold,
