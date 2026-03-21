@@ -14,7 +14,7 @@ class MetricGridWidget extends StatelessWidget {
   final Function(String) onSensorSelected;
 
   const MetricGridWidget({
-    Key? key,
+    super.key,
     required this.card,
     required this.txt,
     required this.sub,
@@ -25,7 +25,7 @@ class MetricGridWidget extends StatelessWidget {
     required this.aqi,
     required this.selectedSensor,
     required this.onSensorSelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

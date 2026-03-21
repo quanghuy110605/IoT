@@ -11,7 +11,7 @@ class ControlGridWidget extends StatelessWidget {
   final Function(String, dynamic) onUpdateControl;
 
   const ControlGridWidget({
-    Key? key,
+    super.key,
     required this.card,
     required this.txt,
     required this.h,
@@ -19,20 +19,20 @@ class ControlGridWidget extends StatelessWidget {
     required this.isFanOn,
     required this.isBuzzerOn,
     required this.onUpdateControl,
-  }) : super(key: key);
+  });
 
   BoxDecoration _boxDec(Color bg, Color border, double radius) => BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), // simplified shadow
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: bg,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border, width: 1.5),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.04), // simplified shadow
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +77,9 @@ class ControlGridWidget extends StatelessWidget {
               child: Container(
                 decoration: _boxDec(
                   active ? item.color.withValues(alpha: 0.13) : card,
-                  active ? item.color.withValues(alpha: 0.55) : Colors.transparent,
+                  active
+                      ? item.color.withValues(alpha: 0.55)
+                      : Colors.transparent,
                   16,
                 ),
                 child: Column(

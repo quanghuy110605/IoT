@@ -16,7 +16,7 @@ class AcRemoteWidget extends StatelessWidget {
   final Function(double, double) onRangeSaved;
 
   const AcRemoteWidget({
-    Key? key,
+    super.key,
     required this.card,
     required this.txt,
     required this.sub,
@@ -28,32 +28,32 @@ class AcRemoteWidget extends StatelessWidget {
     required this.dbRef,
     required this.onUpdateControl,
     required this.onRangeSaved,
-  }) : super(key: key);
+  });
 
   BoxDecoration _boxDec(Color bg, Color border, double radius) => BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: bg,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border, width: 1.5),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 
   Widget _acBtn(IconData icon, bool active, VoidCallback fn) => GestureDetector(
-        onTap: active ? fn : null,
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isDarkMode ? Colors.white12 : Colors.grey.shade100,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: active ? Colors.blue : Colors.grey, size: 20),
-        ),
-      );
+    onTap: active ? fn : null,
+    child: Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.white12 : Colors.grey.shade100,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: active ? Colors.blue : Colors.grey, size: 20),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

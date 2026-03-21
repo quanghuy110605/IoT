@@ -10,13 +10,13 @@ class IrLearningDialog extends StatefulWidget {
   final Function(double, double) onRangeSaved;
 
   const IrLearningDialog({
-    Key? key,
+    super.key,
     required this.isDarkMode,
     required this.currentMinTemp,
     required this.currentMaxTemp,
     required this.dbRef,
     required this.onRangeSaved,
-  }) : super(key: key);
+  });
 
   @override
   State<IrLearningDialog> createState() => _IrLearningDialogState();
@@ -35,6 +35,9 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
   StreamSubscription? _dbSubscription;
   String _currentTarget = "";
 
+  // --- CHỐT CHẶN AN TOÀN ---
+  bool _isWaitingForDone = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +52,8 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
     super.dispose();
   }
 
-  void _startSingleSignal(String title, String firebaseTarget) {
+  // Sửa thành hàm async để bắt buộc chờ Firebase
+  Future<void> _startSingleSignal(String title, String firebaseTarget) async {
     setState(() {
       _step = 2;
       _learningTitle = title;
@@ -59,10 +63,11 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
       _currentTarget = firebaseTarget;
     });
     _listenToFirebase();
-    widget.dbRef.child("Control/LearnTarget").set(firebaseTarget);
+    await _sendTargetToFirebase(firebaseTarget);
   }
 
-  void _startTempRangeSignal() {
+  // Sửa thành hàm async để bắt buộc chờ Firebase
+  Future<void> _startTempRangeSignal() async {
     setState(() {
       _step = 2;
       _learningTitle = "Nhiệt độ";
@@ -72,28 +77,56 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
       _currentTarget = _minTemp.toInt().toString();
     });
     _listenToFirebase();
-    widget.dbRef.child("Control/LearnTarget").set(_currentTarget);
+    await _sendTargetToFirebase(_currentTarget);
+  }
+
+  // HÀM MỚI: Chuyên xử lý gửi lệnh và bắt lỗi
+  Future<void> _sendTargetToFirebase(String target) async {
+    try {
+      _isWaitingForDone = false; // Khóa tai nghe lại
+
+      // Bắt buộc chờ Google phản hồi ghi thành công
+      await widget.dbRef.child("Control/LearnTarget").set(target);
+
+      // Ghi thành công rồi mới mở tai nghe để chờ chữ "DONE" từ ESP32
+      _isWaitingForDone = true;
+    } catch (e) {
+      // NẾU LỖI QUYỀN TRUY CẬP SẼ BÁO ĐỎ Ở ĐÂY
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Lỗi gửi Firebase: Bị từ chối quyền truy cập!"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _listenToFirebase() {
     _dbSubscription?.cancel();
-    _dbSubscription =
-        widget.dbRef.child("Control/LearnTarget").onValue.listen((event) {
+    _dbSubscription = widget.dbRef.child("Control/LearnTarget").onValue.listen((
+      event,
+    ) async {
       if (_isCanceled) return;
       final val = event.snapshot.value?.toString();
 
-      if (val == "DONE") {
+      // LOGIC CHUẨN: Chỉ nhảy số nếu thấy chữ DONE **VÀ** Web đang được phép chờ
+      if (val == "DONE" && _isWaitingForDone) {
+        _isWaitingForDone =
+            false; // Khóa tai nghe ngay lập tức để chống lặp vòng
+
         setState(() => _learnedSignals++);
 
         if (_learnedSignals < _targetSignals) {
           if (_learningTitle == "Nhiệt độ") {
             int nextTemp = _minTemp.toInt() + _learnedSignals;
             _currentTarget = nextTemp.toString();
-            widget.dbRef.child("Control/LearnTarget").set(_currentTarget);
+            await _sendTargetToFirebase(_currentTarget); // Gửi số tiếp theo
           }
         } else {
           _dbSubscription?.cancel();
-          widget.dbRef.child("Control/LearnTarget").set("IDLE");
+          await widget.dbRef.child("Control/LearnTarget").set("IDLE");
           _finishLearning();
         }
       }
@@ -149,17 +182,33 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
           _header("Học lệnh Hồng Ngoại", txt, sub),
           const SizedBox(height: 12),
           Text(
-              "Chọn một chức năng để thiết lập mã điều khiển từ remote gốc.",
-              style: TextStyle(fontSize: 14, color: sub)),
+            "Chọn một chức năng để thiết lập mã điều khiển từ remote gốc.",
+            style: TextStyle(fontSize: 14, color: sub),
+          ),
           const SizedBox(height: 24),
-          _btn("Bật Điều Hòa", Icons.power_settings_new_rounded, Colors.green,
-              txt, () => _startSingleSignal("Bật Điều Hòa", "ON")),
+          _btn(
+            "Bật Điều Hòa",
+            Icons.power_settings_new_rounded,
+            Colors.green,
+            txt,
+            () => _startSingleSignal("Bật Điều Hòa", "ON"),
+          ),
           const SizedBox(height: 12),
-          _btn("Tắt Điều Hòa", Icons.power_off_rounded, Colors.red, txt,
-              () => _startSingleSignal("Tắt Điều Hòa", "OFF")),
+          _btn(
+            "Tắt Điều Hòa",
+            Icons.power_off_rounded,
+            Colors.red,
+            txt,
+            () => _startSingleSignal("Tắt Điều Hòa", "OFF"),
+          ),
           const SizedBox(height: 12),
-          _btn("Học dải Nhiệt Độ", Icons.thermostat_rounded, Colors.blue, txt,
-              () => setState(() => _step = 1)),
+          _btn(
+            "Học dải Nhiệt Độ",
+            Icons.thermostat_rounded,
+            Colors.blue,
+            txt,
+            () => setState(() => _step = 1),
+          ),
         ],
       );
     } else if (_step == 1) {
@@ -171,34 +220,52 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
           Row(
             children: [
               IconButton(
-                  icon: Icon(Icons.arrow_back_rounded, color: txt),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => setState(() => _step = 0)),
+                icon: Icon(Icons.arrow_back_rounded, color: txt),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => setState(() => _step = 0),
+              ),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text("Chọn khoảng Nhiệt độ",
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: txt))),
+                child: Text(
+                  "Chọn khoảng Nhiệt độ",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: txt,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Text(
-              "Chọn ngưỡng thấp nhất và cao nhất để học. Hệ thống sẽ tự động quét qua các mức nhiệt này.",
-              style: TextStyle(fontSize: 14, color: sub)),
+            "Chọn ngưỡng thấp nhất và cao nhất để học. Hệ thống sẽ tự động quét qua các mức nhiệt này.",
+            style: TextStyle(fontSize: 14, color: sub),
+          ),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _tempPicker("Min", _minTemp, (v) {
-                if (v < _maxTemp) setState(() => _minTemp = v);
-              }, txt, sub),
+              _tempPicker(
+                "Min",
+                _minTemp,
+                (v) {
+                  if (v < _maxTemp) setState(() => _minTemp = v);
+                },
+                txt,
+                sub,
+              ),
               const Icon(Icons.arrow_right_alt_rounded, color: Colors.grey),
-              _tempPicker("Max", _maxTemp, (v) {
-                if (v > _minTemp) setState(() => _maxTemp = v);
-              }, txt, sub),
+              _tempPicker(
+                "Max",
+                _maxTemp,
+                (v) {
+                  if (v > _minTemp) setState(() => _maxTemp = v);
+                },
+                txt,
+                sub,
+              ),
             ],
           ),
           const SizedBox(height: 32),
@@ -206,16 +273,21 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _startTempRangeSignal,
-              child: const Text("Tiếp tục",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
+              child: const Text(
+                "Tiếp tục",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],
@@ -237,27 +309,36 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
-                  icon: Icon(Icons.close, color: sub),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () {
-                    _isCanceled = true;
-                    widget.dbRef.child("Control/LearnTarget").set("IDLE");
-                    Navigator.pop(context);
-                  }),
+                icon: Icon(Icons.close, color: sub),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  _isCanceled = true;
+                  widget.dbRef.child("Control/LearnTarget").set("IDLE");
+                  Navigator.pop(context);
+                },
+              ),
             ],
           ),
-          Icon(Icons.wifi_tethering_rounded,
-              size: 60, color: Colors.blueAccent.withValues(alpha: 0.8)),
+          Icon(
+            Icons.wifi_tethering_rounded,
+            size: 60,
+            color: Colors.blueAccent.withValues(alpha: 0.8),
+          ),
           const SizedBox(height: 20),
-          Text("Hãy bấm nút sau trên Remote:",
-              style: TextStyle(fontSize: 14, color: sub)),
+          Text(
+            "Hãy bấm nút sau trên Remote:",
+            style: TextStyle(fontSize: 14, color: sub),
+          ),
           const SizedBox(height: 8),
-          Text(currentActionLabel,
-              style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent)),
+          Text(
+            currentActionLabel,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueAccent,
+            ),
+          ),
           const SizedBox(height: 24),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -266,15 +347,21 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
                   ? 0
                   : (_learnedSignals / _targetSignals),
               minHeight: 12,
-              backgroundColor:
-                  widget.isDarkMode ? Colors.white10 : Colors.grey.shade200,
+              backgroundColor: widget.isDarkMode
+                  ? Colors.white10
+                  : Colors.grey.shade200,
               valueColor: const AlwaysStoppedAnimation(Colors.blueAccent),
             ),
           ),
           const SizedBox(height: 12),
-          Text("Tiến độ: $_learnedSignals / $_targetSignals",
-              style: TextStyle(
-                  fontSize: 13, color: sub, fontWeight: FontWeight.w600)),
+          Text(
+            "Tiến độ: $_learnedSignals / $_targetSignals",
+            style: TextStyle(
+              fontSize: 13,
+              color: sub,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       );
     }
@@ -284,47 +371,67 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title,
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: txt)),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: txt,
+          ),
+        ),
         IconButton(
-            icon: Icon(Icons.close, color: sub),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints()),
+          icon: Icon(Icons.close, color: sub),
+          onPressed: () => Navigator.pop(context),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
       ],
     );
   }
 
-  Widget _btn(String label, IconData icon, Color color, Color txtColor,
-      VoidCallback onTap) {
+  Widget _btn(
+    String label,
+    IconData icon,
+    Color color,
+    Color txtColor,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(12),
-            color: color.withValues(alpha: 0.1)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(12),
+          color: color.withValues(alpha: 0.1),
+        ),
         child: Row(
           children: [
             Icon(icon, color: color),
             const SizedBox(width: 16),
-            Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600, color: txtColor)),
+            Text(
+              label,
+              style: TextStyle(fontWeight: FontWeight.w600, color: txtColor),
+            ),
             const Spacer(),
-            Icon(Icons.chevron_right_rounded,
-                color: color.withValues(alpha: 0.6)),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: color.withValues(alpha: 0.6),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _tempPicker(String title, double val, Function(double) onChanged,
-      Color txt, Color sub) {
+  Widget _tempPicker(
+    String title,
+    double val,
+    Function(double) onChanged,
+    Color txt,
+    Color sub,
+  ) {
     return Column(
       children: [
         Text(title, style: TextStyle(color: sub, fontSize: 13)),
@@ -332,19 +439,25 @@ class _IrLearningDialogState extends State<IrLearningDialog> {
         Row(
           children: [
             IconButton(
-                icon: Icon(Icons.remove_circle_outline, color: txt),
-                onPressed: () => onChanged(val - 1)),
+              icon: Icon(Icons.remove_circle_outline, color: txt),
+              onPressed: () => onChanged(val - 1),
+            ),
             SizedBox(
-                width: 40,
-                child: Text("${val.toInt()}°C",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: txt))),
+              width: 40,
+              child: Text(
+                "${val.toInt()}°C",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: txt,
+                ),
+              ),
+            ),
             IconButton(
-                icon: Icon(Icons.add_circle_outline, color: txt),
-                onPressed: () => onChanged(val + 1)),
+              icon: Icon(Icons.add_circle_outline, color: txt),
+              onPressed: () => onChanged(val + 1),
+            ),
           ],
         ),
       ],

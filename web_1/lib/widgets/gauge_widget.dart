@@ -14,7 +14,7 @@ class GaugeWidget extends StatelessWidget {
   final VoidCallback onTap;
 
   const GaugeWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.val,
     required this.max,
@@ -26,20 +26,20 @@ class GaugeWidget extends StatelessWidget {
     required this.isSelected,
     required this.isDarkMode,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   BoxDecoration _boxDec(Color bg, Color border, double radius) => BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: bg,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border, width: 1.5),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {

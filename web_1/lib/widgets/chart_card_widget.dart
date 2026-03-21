@@ -14,7 +14,7 @@ class ChartCardWidget extends StatelessWidget {
   final VoidCallback onPickDate;
 
   const ChartCardWidget({
-    Key? key,
+    super.key,
     required this.card,
     required this.txt,
     required this.sub,
@@ -25,20 +25,20 @@ class ChartCardWidget extends StatelessWidget {
     required this.selectedDate,
     required this.onToggleChartType,
     required this.onPickDate,
-  }) : super(key: key);
+  });
 
   BoxDecoration _boxDec(Color bg, Color border, double radius) => BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: bg,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border, width: 1.5),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDarkMode ? 0.35 : 0.04),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 
   Widget _pillBtn(
     IconData icon,
@@ -103,8 +103,9 @@ class ChartCardWidget extends StatelessWidget {
             reservedSize: 46,
             interval: step,
             getTitlesWidget: (v, meta) {
-              if (v == meta.max || v == meta.min)
+              if (v == meta.max || v == meta.min) {
                 return const SizedBox.shrink();
+              }
               return Text(
                 v.toStringAsFixed(0),
                 style: TextStyle(fontSize: 10, color: sub),
@@ -113,8 +114,9 @@ class ChartCardWidget extends StatelessWidget {
           ),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles:
-            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
       );
 
   Widget _lineChart(
@@ -259,13 +261,14 @@ class ChartCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color color = Colors.orangeAccent;
-    if (selectedSensor == "Độ ẩm")
+    if (selectedSensor == "Độ ẩm") {
       color = Colors.blueAccent;
-    else if (selectedSensor == "Khí gas")
+    } else if (selectedSensor == "Khí gas")
       color = Colors.redAccent;
     else if (selectedSensor == "eCO2")
       color = Colors.teal;
-    else if (selectedSensor == "TVOC") color = Colors.purple;
+    else if (selectedSensor == "TVOC")
+      color = Colors.purple;
 
     double minY = 0, maxY = 10;
     if (spots.isNotEmpty) {
