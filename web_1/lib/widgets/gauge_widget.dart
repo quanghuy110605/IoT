@@ -45,73 +45,69 @@ class GaugeWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final circD = (h * 0.56).clamp(36.0, 52.0);
     final fs = (h * 0.145).clamp(10.0, 14.0);
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: h * 0.12,
-            vertical: h * 0.08,
-          ),
-          decoration: _boxDec(
-            isSelected ? color.withValues(alpha: 0.12) : card,
-            isSelected ? color.withValues(alpha: 0.5) : Colors.transparent,
-            16,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: circD,
-                height: circD,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: max > 0 ? (val / max) : 0,
-                      color: color,
-                      strokeWidth: 5,
-                      backgroundColor: Colors.black12,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: h * 0.12,
+          vertical: h * 0.08,
+        ),
+        decoration: _boxDec(
+          isSelected ? color.withValues(alpha: 0.12) : card,
+          isSelected ? color.withValues(alpha: 0.5) : Colors.transparent,
+          16,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Giữ min cho UI di động
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: circD,
+              height: circD,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: max > 0 ? (val / max) : 0,
+                    color: color,
+                    strokeWidth: 5,
+                    backgroundColor: Colors.black12,
+                  ),
+                  Text(
+                    "${val.toInt()}",
+                    style: TextStyle(
+                      fontSize: fs,
+                      fontWeight: FontWeight.bold,
+                      color: txt,
                     ),
-                    Text(
-                      "${val.toInt()}",
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: txt,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              SizedBox(width: h * 0.10),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: fs * 0.85,
-                        color: isDarkMode ? Colors.white60 : Colors.grey,
-                      ),
-                    ),
-                    Text(
-                      unit,
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                  ],
+            ),
+            SizedBox(width: h * 0.10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min, // Thu gọn theo content
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: fs * 0.85,
+                    color: isDarkMode ? Colors.white60 : Colors.grey,
+                  ),
                 ),
-              ),
-            ],
-          ),
+                Text(
+                  unit,
+                  style: TextStyle(
+                    fontSize: fs,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

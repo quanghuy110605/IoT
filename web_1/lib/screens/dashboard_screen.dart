@@ -186,55 +186,70 @@ class _IoTDashboardState extends State<IoTDashboard> {
               final ctrlH = isDesktop ? ctrlDesktopH : 120.0;
               final chartH = isDesktop ? (availH - gaugeHDesktop - gap) : 320.0;
 
-              final colChildren = [
-                SizedBox(
-                  height: gaugeH,
-                  child: Row(
-                    children: [
-                      GaugeWidget(
-                        title: "Nhiệt độ",
-                        val: currentTemp,
-                        max: 50,
-                        unit: "°C",
-                        color: Colors.orangeAccent,
-                        card: card,
-                        txt: txt,
-                        h: gaugeH,
-                        isSelected: selectedSensor == "Nhiệt độ",
-                        isDarkMode: isDarkMode,
-                        onTap: () => setState(() => selectedSensor = "Nhiệt độ"),
-                      ),
-                      SizedBox(width: gap),
-                      GaugeWidget(
-                        title: "Độ ẩm",
-                        val: currentHumi,
-                        max: 100,
-                        unit: "%",
-                        color: Colors.blueAccent,
-                        card: card,
-                        txt: txt,
-                        h: gaugeH,
-                        isSelected: selectedSensor == "Độ ẩm",
-                        isDarkMode: isDarkMode,
-                        onTap: () => setState(() => selectedSensor = "Độ ẩm"),
-                      ),
-                      SizedBox(width: gap),
-                      GaugeWidget(
-                        title: "TVOC",
-                        val: currentTvoc,
-                        max: 500,
-                        unit: "ppb",
-                        color: Colors.purple,
-                        card: card,
-                        txt: txt,
-                        h: gaugeH,
-                        isSelected: selectedSensor == "TVOC",
-                        isDarkMode: isDarkMode,
-                        onTap: () => setState(() => selectedSensor = "TVOC"),
-                      ),
-                    ],
-                  ),
+              final gaugeWidgets = [
+                GaugeWidget(
+                  title: "Nhiệt độ",
+                  val: currentTemp,
+                  max: 50,
+                  unit: "°C",
+                  color: Colors.orangeAccent,
+                  card: card,
+                  txt: txt,
+                  h: gaugeH,
+                  isSelected: selectedSensor == "Nhiệt độ",
+                  isDarkMode: isDarkMode,
+                  onTap: () => setState(() => selectedSensor = "Nhiệt độ"),
                 ),
+                GaugeWidget(
+                  title: "Độ ẩm",
+                  val: currentHumi,
+                  max: 100,
+                  unit: "%",
+                  color: Colors.blueAccent,
+                  card: card,
+                  txt: txt,
+                  h: gaugeH,
+                  isSelected: selectedSensor == "Độ ẩm",
+                  isDarkMode: isDarkMode,
+                  onTap: () => setState(() => selectedSensor = "Độ ẩm"),
+                ),
+                GaugeWidget(
+                  title: "TVOC",
+                  val: currentTvoc,
+                  max: 500,
+                  unit: "ppb",
+                  color: Colors.purple,
+                  card: card,
+                  txt: txt,
+                  h: gaugeH,
+                  isSelected: selectedSensor == "TVOC",
+                  isDarkMode: isDarkMode,
+                  onTap: () => setState(() => selectedSensor = "TVOC"),
+                ),
+              ];
+
+              final colChildren = [
+                if (isDesktop)
+                  SizedBox(
+                    height: gaugeH,
+                    child: Row(
+                      children: gaugeWidgets.asMap().entries.map((e) {
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(right: e.key != gaugeWidgets.length - 1 ? gap : 0),
+                            child: e.value,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    alignment: WrapAlignment.center,
+                    children: gaugeWidgets,
+                  ),
                 SizedBox(height: gap),
                 if (isDesktop)
                   SizedBox(
