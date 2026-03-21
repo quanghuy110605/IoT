@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 
-void main() => runApp(const MyApp());
+// --- CẤU HÌNH FIREBASE ---
+const firebaseConfig = FirebaseOptions(
+  apiKey: "AIzaSyAMqDt8myAePFpsqbw3zh2ItzPAV8VPrK4",
+  authDomain: "fir-1esp.firebaseapp.com",
+  databaseURL: "https://fir-1esp-default-rtdb.firebaseio.com",
+  projectId: "fir-1esp",
+  storageBucket: "fir-1esp.firebasestorage.app",
+  messagingSenderId: "555400554508",
+  appId: "1:555400554508:web:b852a56538d272018ca629",
+);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: firebaseConfig);
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -21,202 +38,30 @@ class IoTDashboard extends StatefulWidget {
 }
 
 class _IoTDashboardState extends State<IoTDashboard> {
-  bool isDarkMode = false;
-  bool isLightOn = false;
-  bool isFanOn = false;
-  bool isBuzzerOn = false;
-  double acTemp = 24.0;
-  double acMinTemp = 16.0;
-  double acMaxTemp = 30.0;
-  bool isAcOn = false;
+  // Biến trạng thái UI
+  bool isDarkMode = true;
   String selectedSensor = "Nhiệt độ";
   DateTime selectedDate = DateTime.now();
   bool isBarChart = false;
 
-  final Map<String, List<FlSpot>> sensorData = {
-    "Nhiệt độ": List.generate(25, (i) {
-      const v = [
-        25.0,
-        24.5,
-        24.0,
-        23.8,
-        23.5,
-        23.2,
-        23.8,
-        24.5,
-        25.5,
-        26.8,
-        27.5,
-        28.2,
-        28.8,
-        29.0,
-        28.5,
-        28.0,
-        27.5,
-        27.2,
-        27.0,
-        26.8,
-        26.5,
-        26.2,
-        25.8,
-        25.5,
-        25.0,
-      ];
-      return FlSpot(i.toDouble(), v[i]);
-    }),
-    "Độ ẩm": List.generate(25, (i) {
-      const v = [
-        68.0,
-        70.0,
-        71.5,
-        72.0,
-        72.5,
-        73.0,
-        72.0,
-        70.5,
-        68.0,
-        65.0,
-        62.5,
-        60.0,
-        58.5,
-        57.0,
-        58.0,
-        59.5,
-        61.0,
-        62.5,
-        63.5,
-        64.5,
-        65.5,
-        66.0,
-        66.5,
-        67.0,
-        68.0,
-      ];
-      return FlSpot(i.toDouble(), v[i]);
-    }),
-    "Khí gas": List.generate(25, (i) {
-      const v = [
-        100.0,
-        98.0,
-        97.0,
-        96.0,
-        95.0,
-        95.0,
-        96.0,
-        98.0,
-        105.0,
-        115.0,
-        125.0,
-        140.0,
-        150.0,
-        148.0,
-        142.0,
-        135.0,
-        128.0,
-        122.0,
-        118.0,
-        115.0,
-        112.0,
-        110.0,
-        108.0,
-        103.0,
-        100.0,
-      ];
-      return FlSpot(i.toDouble(), v[i]);
-    }),
-    "eCO2": List.generate(25, (i) {
-      const v = [
-        400.0,
-        410.0,
-        415.0,
-        420.0,
-        430.0,
-        440.0,
-        450.0,
-        460.0,
-        455.0,
-        450.0,
-        445.0,
-        440.0,
-        435.0,
-        430.0,
-        425.0,
-        420.0,
-        415.0,
-        410.0,
-        405.0,
-        400.0,
-        405.0,
-        410.0,
-        415.0,
-        420.0,
-        425.0,
-      ];
-      return FlSpot(i.toDouble(), v[i]);
-    }),
-    "TVOC": List.generate(25, (i) {
-      const v = [
-        100.0,
-        105.0,
-        110.0,
-        115.0,
-        120.0,
-        125.0,
-        130.0,
-        125.0,
-        120.0,
-        115.0,
-        110.0,
-        105.0,
-        100.0,
-        95.0,
-        90.0,
-        85.0,
-        80.0,
-        85.0,
-        90.0,
-        95.0,
-        100.0,
-        105.0,
-        110.0,
-        115.0,
-        120.0,
-      ];
-      return FlSpot(i.toDouble(), v[i]);
-    }),
-  };
+  // Biến cài đặt Điều hòa
+  double acMinTemp = 16.0;
+  double acMaxTemp = 30.0;
 
-  static const int eco2Value = 450;
-  static const int tvocValue = 125;
+  // Tham chiếu Firebase
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref("Huy_Project");
 
-  int get aqiValue {
-    const smoke = 120.0;
-    final co2 = eco2Value.toDouble();
-    final rawAqi = (((smoke / 1024) * 300 + ((co2 - 400) / 1600) * 200) / 2)
-        .clamp(0, 500);
-    if (rawAqi <= 50) return 1;
-    if (rawAqi <= 100) return 2;
-    if (rawAqi <= 150) return 3;
-    if (rawAqi <= 200) return 4;
-    return 5;
+  // Hàm chuyển đổi số liệu an toàn từ Firebase
+  double _pd(dynamic value, {double fallback = 0.0}) {
+    if (value == null) return fallback;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
   }
 
-  Color get aqiColor {
-    final v = aqiValue;
-    if (v == 1) return Colors.green;
-    if (v == 2) return Colors.yellow.shade700;
-    if (v == 3) return Colors.orange;
-    if (v == 4) return Colors.red;
-    return Colors.purple;
-  }
-
-  String get aqiLabel {
-    final v = aqiValue;
-    if (v == 1) return "Tốt";
-    if (v == 2) return "Trung bình";
-    if (v == 3) return "Kém";
-    if (v == 4) return "Xấu";
-    return "Nguy hiểm";
+  // Hàm gửi lệnh điều khiển lên Firebase
+  void _updateControl(String node, dynamic value) {
+    _dbRef.child("Control/$node").set(value);
   }
 
   Future<void> _pickDate() async {
@@ -243,7 +88,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          "Huy Smart Home Control",
+          " Smart Home Control",
           style: TextStyle(
             color: txt,
             fontWeight: FontWeight.bold,
@@ -268,124 +113,224 @@ class _IoTDashboardState extends State<IoTDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (ctx, bc) {
-          final W = bc.maxWidth;
-          final H = bc.maxHeight;
-          final pad = (W * 0.014).clamp(10.0, 18.0);
-          final gap = (W * 0.010).clamp(6.0, 12.0);
+      body: StreamBuilder(
+        stream: _dbRef.onValue,
+        builder: (context, snapshot) {
+          if (snapshot.hasError)
+            return Center(
+              child: Text('Lỗi kết nối!', style: TextStyle(color: txt)),
+            );
+          if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Left column = 38% of usable width
-          final leftW = ((W - pad * 2 - gap) * 0.38).clamp(240.0, 400.0);
-          // Available height inside padding
-          final availH = H - pad * 2;
-          // Gauge row: 18% of height — bigger cards
-          final gaugeH = (availH * 0.18).clamp(90.0, 115.0);
-          // Remaining after gauge + gap
-          final mainH = availH - gaugeH - gap;
-          // Left section heights (proportional to mainH)
-          final metricH = (mainH * 0.26).clamp(90.0, 140.0);
-          final acH = (mainH * 0.22).clamp(94.0, 115.0);
-          final ctrlH = (mainH * 0.26).clamp(90.0, 140.0);
-          // Chart = same as mainH (fills full height)
-          final chartH = mainH;
+          final data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
 
-          return Padding(
-            padding: EdgeInsets.all(pad),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                //──────────────────── GAUGE ROW ────────────────────
-                SizedBox(
-                  height: gaugeH,
-                  child: Row(
-                    children: [
-                      _gauge(
-                        "Nhiệt độ",
-                        28.5,
-                        50,
-                        "°C",
-                        Colors.orangeAccent,
-                        card,
-                        txt,
-                        gaugeH,
-                      ),
-                      SizedBox(width: gap),
-                      _gauge(
-                        "Độ ẩm",
-                        65,
-                        100,
-                        "%",
-                        Colors.blueAccent,
-                        card,
-                        txt,
-                        gaugeH,
-                      ),
-                      SizedBox(width: gap),
-                      _gauge(
-                        "TVOC",
-                        tvocValue.toDouble(),
-                        500,
-                        "ppb",
-                        Colors.purple,
-                        card,
-                        txt,
-                        gaugeH,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: gap),
+          // --- 1. Lấy dữ liệu Current ---
+          final current = data['Current'] ?? {};
+          final env = current['Environment'] ?? {};
+          final air = current['Air'] ?? {};
+          final alert = current['Alert'] ?? {};
 
-                //──────────────────── MAIN ROW ─────────────────────
-                SizedBox(
-                  height: mainH,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      //────── CỘT TRÁI ──────
-                      SizedBox(
-                        width: leftW,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // 1. eCO2 / TVOC / AQI
-                            SizedBox(
-                              height: metricH,
-                              child: _metricGrid(
+          double currentTemp = _pd(env['Temp']);
+          double currentHumi = _pd(env['Humi']);
+          double currentEco2 = _pd(air['eCO2']);
+          double currentTvoc = _pd(air['TVOC']);
+          int aqiValue = (_pd(air['AQI'])).toInt();
+          if (aqiValue == 0) aqiValue = 1;
+
+          String smokeStatus = alert['Smoke']?.toString() ?? "SAFE";
+          bool isGasWarning = smokeStatus == "DANGER";
+
+          // --- 2. Lấy dữ liệu Control ---
+          final control = data['Control'] ?? {};
+          bool isLightOn = control['Light'] == 1 || control['Light'] == true;
+          bool isFanOn = control['Fan'] == 1 || control['Fan'] == true;
+          bool isBuzzerOn = control['Buzzer'] == 1 || control['Buzzer'] == true;
+          bool isAcOn = control['AcOn'] == 1 || control['AcOn'] == true;
+          double acTemp = _pd(control['AcTemp'], fallback: 24.0);
+
+          // --- 3. Lấy dữ liệu History vẽ biểu đồ ---
+          final history = data['History'] as Map<dynamic, dynamic>? ?? {};
+          Map<String, List<FlSpot>> parsedChartData = {
+            "Nhiệt độ": [],
+            "Độ ẩm": [],
+            "Khí gas": [],
+            "eCO2": [],
+            "TVOC": [],
+          };
+
+          if (history.isNotEmpty) {
+            var sortedKeys = history.keys.toList()..sort();
+            var lastKeys = sortedKeys.length > 25
+                ? sortedKeys.sublist(sortedKeys.length - 25)
+                : sortedKeys;
+            int i = 0;
+            for (var key in lastKeys) {
+              var entry = history[key];
+              if (entry != null) {
+                double t = _pd(entry['Environment']?['Temp'] ?? entry['Temp']);
+                double h = _pd(entry['Environment']?['Humi'] ?? entry['Humi']);
+                double e = _pd(entry['Air']?['eCO2'] ?? entry['eCO2']);
+                double tv = _pd(entry['Air']?['TVOC'] ?? entry['TVOC']);
+                String s = entry['Alert']?['Smoke'] ?? entry['Smoke'] ?? "SAFE";
+                double g = (s == "DANGER" || s == "0") ? 150.0 : 50.0;
+
+                parsedChartData["Nhiệt độ"]!.add(FlSpot(i.toDouble(), t));
+                parsedChartData["Độ ẩm"]!.add(FlSpot(i.toDouble(), h));
+                parsedChartData["eCO2"]!.add(FlSpot(i.toDouble(), e));
+                parsedChartData["TVOC"]!.add(FlSpot(i.toDouble(), tv));
+                parsedChartData["Khí gas"]!.add(FlSpot(i.toDouble(), g));
+                i++;
+              }
+            }
+          }
+
+          // Cung cấp mảng mặc định nếu history trống
+          for (var key in parsedChartData.keys) {
+            if (parsedChartData[key]!.isEmpty)
+              parsedChartData[key]!.add(const FlSpot(0, 0));
+          }
+
+          return LayoutBuilder(
+            builder: (ctx, bc) {
+              final W = bc.maxWidth;
+              final H = bc.maxHeight;
+              final pad = (W * 0.014).clamp(10.0, 18.0);
+              final gap = (W * 0.010).clamp(6.0, 12.0);
+
+              final leftW = ((W - pad * 2 - gap) * 0.38).clamp(240.0, 400.0);
+              final availH = H - pad * 2;
+              final gaugeH = (availH * 0.18).clamp(90.0, 115.0);
+              final mainH = availH - gaugeH - gap;
+
+              final metricH = (mainH * 0.26).clamp(90.0, 140.0);
+              final acH = (mainH * 0.22).clamp(94.0, 115.0);
+              final ctrlH = (mainH * 0.26).clamp(90.0, 140.0);
+              final chartH = mainH;
+
+              return Padding(
+                padding: EdgeInsets.all(pad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    //──────────────────── GAUGE ROW ────────────────────
+                    SizedBox(
+                      height: gaugeH,
+                      child: Row(
+                        children: [
+                          _gauge(
+                            "Nhiệt độ",
+                            currentTemp,
+                            50,
+                            "°C",
+                            Colors.orangeAccent,
+                            card,
+                            txt,
+                            gaugeH,
+                          ),
+                          SizedBox(width: gap),
+                          _gauge(
+                            "Độ ẩm",
+                            currentHumi,
+                            100,
+                            "%",
+                            Colors.blueAccent,
+                            card,
+                            txt,
+                            gaugeH,
+                          ),
+                          SizedBox(width: gap),
+                          _gauge(
+                            "TVOC",
+                            currentTvoc,
+                            500,
+                            "ppb",
+                            Colors.purple,
+                            card,
+                            txt,
+                            gaugeH,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: gap),
+
+                    //──────────────────── MAIN ROW ─────────────────────
+                    SizedBox(
+                      height: mainH,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          //────── CỘT TRÁI ──────
+                          SizedBox(
+                            width: leftW,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // 1. eCO2 / Khí gas / AQI
+                                SizedBox(
+                                  height: metricH,
+                                  child: _metricGrid(
+                                    card,
+                                    txt,
+                                    sub,
+                                    leftW,
+                                    metricH,
+                                    currentEco2,
+                                    isGasWarning,
+                                    aqiValue,
+                                  ),
+                                ),
+                                SizedBox(height: gap),
+                                // 2. Điều hòa
+                                SizedBox(
+                                  height: acH,
+                                  child: _acRemote(
+                                    card,
+                                    txt,
+                                    sub,
+                                    isAcOn,
+                                    acTemp,
+                                  ),
+                                ),
+                                SizedBox(height: gap),
+                                // 3. Đèn / Quạt / Còi báo
+                                SizedBox(
+                                  height: ctrlH,
+                                  child: _controlGrid(
+                                    card,
+                                    txt,
+                                    ctrlH,
+                                    isLightOn,
+                                    isFanOn,
+                                    isBuzzerOn,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: gap),
+
+                          //────── CỘT PHẢI: BIỂU ĐỒ ──────
+                          Expanded(
+                            child: SizedBox(
+                              height: chartH,
+                              child: _chartCard(
                                 card,
                                 txt,
                                 sub,
-                                leftW,
-                                metricH,
+                                parsedChartData[selectedSensor]!,
                               ),
                             ),
-                            SizedBox(height: gap),
-                            // 2. Điều hòa
-                            SizedBox(height: acH, child: _acRemote(card, txt)),
-                            SizedBox(height: gap),
-                            // 3. Đèn / Quạt / Còi báo
-                            SizedBox(
-                              height: ctrlH,
-                              child: _controlGrid(card, txt, ctrlH),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: gap),
-
-                      //────── CỘT PHẢI: BIỂU ĐỒ ──────
-                      Expanded(
-                        child: SizedBox(
-                          height: chartH,
-                          child: _chartCard(card, txt, sub),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
@@ -431,7 +376,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
-                      value: val / max,
+                      value: max > 0 ? (val / max) : 0,
                       color: color,
                       strokeWidth: 5,
                       backgroundColor: Colors.black12,
@@ -481,15 +426,42 @@ class _IoTDashboardState extends State<IoTDashboard> {
   }
 
   //══════════════════════════════════════════════════════
-  // METRIC GRID (eCO2 / TVOC / AQI) — 2 or 3 cards per row
+  // METRIC GRID
   //══════════════════════════════════════════════════════
-  Widget _metricGrid(Color card, Color txt, Color sub, double leftW, double h) {
-    // Current gas value (from sensor config, typically dynamic, here static 120 approx)
-    final gasValue = 120;
-    final isGasWarning = gasValue > 150;
+  Widget _metricGrid(
+    Color card,
+    Color txt,
+    Color sub,
+    double leftW,
+    double h,
+    double eco2,
+    bool isGasWarning,
+    int aqi,
+  ) {
+    String aqiLabel = "Tốt";
+    Color aqiColor = Colors.green;
+    if (aqi == 2) {
+      aqiLabel = "Trung bình";
+      aqiColor = Colors.yellow.shade700;
+    } else if (aqi == 3) {
+      aqiLabel = "Kém";
+      aqiColor = Colors.orange;
+    } else if (aqi == 4) {
+      aqiLabel = "Xấu";
+      aqiColor = Colors.red;
+    } else if (aqi >= 5) {
+      aqiLabel = "Nguy hiểm";
+      aqiColor = Colors.purple;
+    }
 
     final items = [
-      _MI("eCO2", "$eco2Value", "ppm", Colors.teal, Icons.cloud_queue_rounded),
+      _MI(
+        "eCO2",
+        "${eco2.toInt()}",
+        "ppm",
+        Colors.teal,
+        Icons.cloud_queue_rounded,
+      ),
       _MI(
         "Khí gas",
         isGasWarning ? "CẢNH BÁO" : "AN TOÀN",
@@ -497,8 +469,9 @@ class _IoTDashboardState extends State<IoTDashboard> {
         isGasWarning ? Colors.red : Colors.green,
         isGasWarning ? Icons.gpp_bad_rounded : Icons.verified_user_rounded,
       ),
-      _MI("AQI", "$aqiValue", aqiLabel, aqiColor, Icons.eco_rounded),
+      _MI("AQI", "$aqi", aqiLabel, aqiColor, Icons.eco_rounded),
     ];
+
     final iconSz = (h * 0.22).clamp(18.0, 28.0);
     final valSz = (h * 0.20).clamp(16.0, 26.0);
     final lblSz = (h * 0.10).clamp(9.0, 13.0);
@@ -507,19 +480,14 @@ class _IoTDashboardState extends State<IoTDashboard> {
       children: items.asMap().entries.map((e) {
         final m = e.value;
         final isLast = e.key == items.length - 1;
-        // Map metric label back to sensor key for chart
-        String sensorKey = m.label;
-
-        final isSelected = selectedSensor == sensorKey;
+        final isSelected = selectedSensor == m.label;
 
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: isLast ? 0 : 6),
             child: GestureDetector(
               onTap: () {
-                if (sensorKey != "AQI") {
-                  setState(() => selectedSensor = sensorKey);
-                }
+                if (m.label != "AQI") setState(() => selectedSensor = m.label);
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -576,7 +544,13 @@ class _IoTDashboardState extends State<IoTDashboard> {
   //══════════════════════════════════════════════════════
   // ĐIỀU HÒA
   //══════════════════════════════════════════════════════
-  Widget _acRemote(Color card, Color txt) {
+  Widget _acRemote(
+    Color card,
+    Color txt,
+    Color sub,
+    bool isAcOn,
+    double acTemp,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: _boxDec(card, Colors.transparent, 16),
@@ -606,7 +580,6 @@ class _IoTDashboardState extends State<IoTDashboard> {
               ),
               Row(
                 children: [
-                  // Cài đặt IR
                   GestureDetector(
                     onTap: () {
                       showDialog(
@@ -620,9 +593,9 @@ class _IoTDashboardState extends State<IoTDashboard> {
                             setState(() {
                               acMinTemp = min;
                               acMaxTemp = max;
-                              if (acTemp < acMinTemp) acTemp = acMinTemp;
-                              if (acTemp > acMaxTemp) acTemp = acMaxTemp;
                             });
+                            if (acTemp < min) _updateControl("AcTemp", min);
+                            if (acTemp > max) _updateControl("AcTemp", max);
                           },
                         ),
                       );
@@ -638,7 +611,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
                     scale: 0.82,
                     child: Switch(
                       value: isAcOn,
-                      onChanged: (v) => setState(() => isAcOn = v),
+                      onChanged: (v) => _updateControl("AcOn", v ? 1 : 0),
                       activeThumbColor: Colors.blue,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -651,8 +624,8 @@ class _IoTDashboardState extends State<IoTDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _acBtn(Icons.remove, () {
-                if (acTemp > acMinTemp) setState(() => acTemp--);
+              _acBtn(Icons.remove, isAcOn, () {
+                if (acTemp > acMinTemp) _updateControl("AcTemp", acTemp - 1);
               }),
               Text(
                 "${acTemp.toInt()}°C",
@@ -662,8 +635,8 @@ class _IoTDashboardState extends State<IoTDashboard> {
                   color: isAcOn ? Colors.blue : Colors.grey,
                 ),
               ),
-              _acBtn(Icons.add, () {
-                if (acTemp < acMaxTemp) setState(() => acTemp++);
+              _acBtn(Icons.add, isAcOn, () {
+                if (acTemp < acMaxTemp) _updateControl("AcTemp", acTemp + 1);
               }),
             ],
           ),
@@ -672,43 +645,50 @@ class _IoTDashboardState extends State<IoTDashboard> {
     );
   }
 
-  Widget _acBtn(IconData icon, VoidCallback fn) => GestureDetector(
-    onTap: isAcOn ? fn : null,
+  Widget _acBtn(IconData icon, bool active, VoidCallback fn) => GestureDetector(
+    onTap: active ? fn : null,
     child: Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.white12 : Colors.grey.shade100,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: isAcOn ? Colors.blue : Colors.grey, size: 20),
+      child: Icon(icon, color: active ? Colors.blue : Colors.grey, size: 20),
     ),
   );
 
   //══════════════════════════════════════════════════════
-  // CONTROL GRID (Đèn / Quạt / Còi báo)
+  // CONTROL GRID
   //══════════════════════════════════════════════════════
-  Widget _controlGrid(Color card, Color txt, double h) {
+  Widget _controlGrid(
+    Color card,
+    Color txt,
+    double h,
+    bool isLightOn,
+    bool isFanOn,
+    bool isBuzzerOn,
+  ) {
     final items = [
       _CI(
         "Đèn",
         isLightOn,
         Icons.lightbulb_outline_rounded,
         Colors.amber,
-        (v) => setState(() => isLightOn = v),
+        (v) => _updateControl("Light", v ? 1 : 0),
       ),
       _CI(
         "Quạt",
         isFanOn,
         Icons.wind_power_rounded,
         Colors.cyan,
-        (v) => setState(() => isFanOn = v),
+        (v) => _updateControl("Fan", v ? 1 : 0),
       ),
       _CI(
         "Còi báo",
         isBuzzerOn,
         Icons.campaign_rounded,
         Colors.red,
-        (v) => setState(() => isBuzzerOn = v),
+        (v) => _updateControl("Buzzer", v ? 1 : 0),
       ),
     ];
     final iconSz = (h * 0.25).clamp(20.0, 32.0);
@@ -774,20 +754,26 @@ class _IoTDashboardState extends State<IoTDashboard> {
   //══════════════════════════════════════════════════════
   // CHART CARD
   //══════════════════════════════════════════════════════
-  Widget _chartCard(Color card, Color txt, Color sub) {
+  Widget _chartCard(Color card, Color txt, Color sub, List<FlSpot> spots) {
     Color color = Colors.orangeAccent;
-    if (selectedSensor == "Độ ẩm") {
+    if (selectedSensor == "Độ ẩm")
       color = Colors.blueAccent;
-    } else if (selectedSensor == "Khí gas") {
+    else if (selectedSensor == "Khí gas")
       color = Colors.redAccent;
-    } else if (selectedSensor == "eCO2") {
+    else if (selectedSensor == "eCO2")
       color = Colors.teal;
-    } else if (selectedSensor == "TVOC") {
+    else if (selectedSensor == "TVOC")
       color = Colors.purple;
+
+    double minY = 0, maxY = 10;
+    if (spots.isNotEmpty) {
+      minY = spots.map((e) => e.y).reduce((a, b) => a < b ? a : b);
+      maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
     }
-    final spots = sensorData[selectedSensor]!;
-    final minY = spots.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-    final maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+    if (minY == maxY) {
+      minY -= 5;
+      maxY += 5;
+    }
     final yPad = (maxY - minY) * 0.18;
 
     return Container(
@@ -796,7 +782,6 @@ class _IoTDashboardState extends State<IoTDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Expanded(
@@ -809,7 +794,6 @@ class _IoTDashboardState extends State<IoTDashboard> {
                   ),
                 ),
               ),
-              // Toggle
               GestureDetector(
                 onTap: () => setState(() => isBarChart = !isBarChart),
                 child: _pillBtn(
@@ -820,14 +804,11 @@ class _IoTDashboardState extends State<IoTDashboard> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Date
               GestureDetector(
                 onTap: _pickDate,
                 child: _pillBtn(
                   Icons.calendar_today,
-                  "${selectedDate.day.toString().padLeft(2, '0')}/"
-                  "${selectedDate.month.toString().padLeft(2, '0')}/"
-                  "${selectedDate.year}",
+                  "${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}",
                   Colors.blueAccent,
                   false,
                   forceColor: Colors.blueAccent,
@@ -897,7 +878,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
     return LineChart(
       LineChartData(
         minX: 0,
-        maxX: 24,
+        maxX: spots.length > 1 ? spots.last.x : 24,
         minY: minY - yPad,
         maxY: maxY + yPad,
         gridData: FlGridData(
@@ -938,7 +919,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
             getTooltipItems: (pts) => pts
                 .map(
                   (s) => LineTooltipItem(
-                    "${s.x.toInt().toString().padLeft(2, '0')}:00\n${s.y.toStringAsFixed(1)}",
+                    "${s.x.toInt()}:00\n${s.y.toStringAsFixed(1)}",
                     const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -1048,7 +1029,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
             getTooltipItem: (g, gi, rod, ri) => BarTooltipItem(
-              "${g.x.toString().padLeft(2, '0')}:00\n${rod.toY.toStringAsFixed(1)}",
+              "${g.x}:00\n${rod.toY.toStringAsFixed(1)}",
               const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
@@ -1103,14 +1084,6 @@ class _IoTDashboardState extends State<IoTDashboard> {
     rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
   );
 
-  //══════════════════════════════════════════════════════
-  // HELPERS
-  //══════════════════════════════════════════════════════
-
-  //══════════════════════════════════════════════════════
-  // HELPERS
-  //══════════════════════════════════════════════════════
-
   BoxDecoration _boxDec(Color bg, Color border, double radius) => BoxDecoration(
     color: bg,
     borderRadius: BorderRadius.circular(radius),
@@ -1127,7 +1100,6 @@ class _IoTDashboardState extends State<IoTDashboard> {
 
 // ── Data classes ──────────────────────────────────────
 class _MI {
-  // Metric Item
   final String label, value, unit;
   final Color color;
   final IconData icon;
@@ -1135,7 +1107,6 @@ class _MI {
 }
 
 class _CI {
-  // Control Item
   final String label;
   final bool isOn;
   final IconData icon;
@@ -1164,14 +1135,10 @@ class _IrLearningDialog extends StatefulWidget {
 }
 
 class _IrLearningDialogState extends State<_IrLearningDialog> {
-  int _step = 0; // 0: Menu, 1: Chọn dải nhiệt độ, 2: Đang học lệnh
+  int _step = 0;
   String _learningTitle = "";
-
-  // Biến cho thanh chọn nhiệt độ
   late double _minTemp;
   late double _maxTemp;
-
-  // Logic mô phỏng IR
   int _targetSignals = 0;
   int _learnedSignals = 0;
   bool _isCanceled = false;
@@ -1207,13 +1174,11 @@ class _IrLearningDialogState extends State<_IrLearningDialog> {
 
   Future<void> _simulateLearning() async {
     while (_learnedSignals < _targetSignals) {
-      // Giả lập chờ tín hiệu IR mất 1.5 giây
       await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted || _isCanceled) return;
       setState(() => _learnedSignals++);
     }
 
-    // Hoàn tất
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted || _isCanceled) return;
 
@@ -1226,12 +1191,10 @@ class _IrLearningDialogState extends State<_IrLearningDialog> {
       ),
     );
 
-    // Lưu lại dải nhiệt độ nếu đang học nhiệt độ
     if (_learningTitle == "Nhiệt độ") {
       widget.onRangeSaved(_minTemp, _maxTemp);
     }
 
-    // Thay vì Pop, ta quay về Menu chính
     setState(() {
       _step = 0;
     });
@@ -1378,7 +1341,6 @@ class _IrLearningDialogState extends State<_IrLearningDialog> {
         ],
       );
     } else {
-      // Step 2: Learning
       String currentAction = "";
       if (_learningTitle == "Nhiệt độ") {
         int currentTemp = (_minTemp + _learnedSignals).toInt();
@@ -1420,7 +1382,7 @@ class _IrLearningDialogState extends State<_IrLearningDialog> {
           const SizedBox(height: 8),
           Text(
             currentAction,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
               color: Colors.blueAccent,
