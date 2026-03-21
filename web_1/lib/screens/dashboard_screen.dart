@@ -229,27 +229,19 @@ class _IoTDashboardState extends State<IoTDashboard> {
               ];
 
               final colChildren = [
-                if (isDesktop)
-                  SizedBox(
-                    height: gaugeH,
-                    child: Row(
-                      children: gaugeWidgets.asMap().entries.map((e) {
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(right: e.key != gaugeWidgets.length - 1 ? gap : 0),
-                            child: e.value,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    alignment: WrapAlignment.center,
-                    children: gaugeWidgets,
+                SizedBox(
+                  height: gaugeH,
+                  child: Row(
+                    children: gaugeWidgets.asMap().entries.map((e) {
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: e.key != gaugeWidgets.length - 1 ? gap : 0),
+                          child: e.value,
+                        ),
+                      );
+                    }).toList(),
                   ),
+                ),
                 SizedBox(height: gap),
                 if (isDesktop)
                   SizedBox(

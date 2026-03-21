@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Huy Smart Home Control',
+      title: ' Smart Home Control',
       home: const IoTDashboard(),
     );
   }

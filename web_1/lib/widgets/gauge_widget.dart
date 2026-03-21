@@ -85,27 +85,35 @@ class GaugeWidget extends StatelessWidget {
               ),
             ),
             SizedBox(width: h * 0.10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min, // Thu gọn theo content
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: fs * 0.85,
-                    color: isDarkMode ? Colors.white60 : Colors.grey,
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min, // Thu gọn theo content
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: fs * 0.85,
+                        color: isDarkMode ? Colors.white60 : Colors.grey,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  unit,
-                  style: TextStyle(
-                    fontSize: fs,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      unit,
+                      style: TextStyle(
+                        fontSize: fs,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
