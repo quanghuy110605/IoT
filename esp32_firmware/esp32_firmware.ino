@@ -27,17 +27,21 @@
 Adafruit_AHTX0 aht;
 DFRobot_ENS160_I2C ens160(&Wire, 0x53);
 
-FirebaseData fbdoRead;   // LUỒNG 1: Chuyên Stream siêu tốc từ Web về
-FirebaseData fbdoWrite;  // LUỒNG 2: Chuyên đẩy Cảm biến lên Web
+FirebaseData fbdoRead;   
+FirebaseData fbdoWrite;  
 FirebaseAuth auth;
 FirebaseConfig config;
 
+// Các biến đếm thời gian
 unsigned long lastUpdateCurrent = 0;
 unsigned long lastUpdateHistory = 0;
 unsigned long lastCheckLDR = 0;
+unsigned long lastDebounceTime = 0;     // Dùng cho nút nhấn (Thay cho delay)
+unsigned long lastStreamReconnect = 0;  // Dùng để tự động nối lại Stream
 
 bool isLearning = false;
 String learnTarget = ""; 
+bool streamCrashed = false; // Cờ báo hiệu Stream đang bị rớt mạng
 
 int lastWebLight = -1;
 int lastWebFan = -1;
@@ -59,7 +63,6 @@ void transmitIRCode(String targetNode) {
   Serial.println("\n[DEBUG-TRANSMIT] === CHUAN BI PHAT HONG NGOAI ===");
   Serial.println("[DEBUG-TRANSMIT] Dang lay ma phat IR cho nut: " + targetNode);
   
-  // Dùng fbdoWrite để không làm đứt luồng Stream của fbdoRead
   if (Firebase.getString(fbdoWrite, "/Huy_Project/IR_Dictionary/" + targetNode)) {
     String rawDataStr = fbdoWrite.stringData();
     if (rawDataStr == "" || rawDataStr == "null") {
@@ -122,15 +125,17 @@ void setup() {
 
   config.host = FIREBASE_HOST;
   config.signer.tokens.legacy_token = FIREBASE_AUTH;
-  fbdoRead.setBSSLBufferSize(2048, 1024); 
+  
+  // Tăng cường tối đa bộ nhớ đệm SSL để chống rớt luồng
+  fbdoRead.setBSSLBufferSize(4096, 1024); 
   fbdoWrite.setBSSLBufferSize(2048, 1024); 
 
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
-  // MỞ KẾT NỐI STREAM SIÊU TỐC TRÊN NHÁNH CONTROL
   if (!Firebase.beginStream(fbdoRead, "/Huy_Project/Control")) {
     Serial.println("[LỖI] Khong the mo luong Stream: " + fbdoRead.errorReason());
+    streamCrashed = true; // Bật cờ để vòng loop tự động nối lại
   } else {
     Serial.println("[DEBUG] Kich hoat Stream thanh cong! Do tre = 0.");
   }
@@ -141,20 +146,22 @@ void setup() {
 // ====================================================================
 void loop() {
   // ----------------------------------------------------
-  // 0. XỬ LÝ NÚT NHẤN TẮT CÒI 
+  // 0. XỬ LÝ NÚT NHẤN TẮT CÒI (Không dùng hàm delay gây nghẽn)
   // ----------------------------------------------------
   bool btnState = digitalRead(BUTTON_PIN);
   if (btnState == HIGH && lastBtnState == LOW) { 
-    Serial.println("\n[DEBUG-ALARM] Da bam nut tat coi tren mach!");
-    ledcWrite(BUZZER_PIN, 0); 
-    lastWebBuzzer = 0; 
-    Firebase.setInt(fbdoWrite, "/Huy_Project/Control/Buzzer", 0); 
-    delay(200); 
+    if (millis() - lastDebounceTime > 250) { // Chống dội phím bằng millis thay vì delay
+      lastDebounceTime = millis();
+      Serial.println("\n[DEBUG-ALARM] Da bam nut tat coi tren mach!");
+      ledcWrite(BUZZER_PIN, 0); 
+      lastWebBuzzer = 0; 
+      Firebase.setInt(fbdoWrite, "/Huy_Project/Control/Buzzer", 0); 
+    }
   }
   lastBtnState = btnState;
 
   // ----------------------------------------------------
-  // 1. CẢM BIẾN GAS -> ĐỒNG BỘ JSON LÊN WEB (REAL-TIME)
+  // 1. CẢM BIẾN GAS -> ĐỒNG BỘ LÊN WEB
   // ----------------------------------------------------
   int gasValue = digitalRead(MQ2_PIN);
   if (gasValue == 0 && lastGasState == 1) { 
@@ -188,7 +195,7 @@ void loop() {
   // ----------------------------------------------------
   // 2. CẢM BIẾN ÁNH SÁNG LDR
   // ----------------------------------------------------
-  if (millis() - lastCheckLDR > 2000) {
+  if (millis() - lastCheckLDR > 100) {
     lastCheckLDR = millis();
     int ldrValue = analogRead(LDR_PIN); 
     bool currentDark = (ldrValue < 100); 
@@ -203,70 +210,88 @@ void loop() {
   }
 
   // ----------------------------------------------------
-  // 3. ĐỌC LỆNH TỪ WEB BẰNG STREAM (SIÊU NHANH, ĐỘ TRỄ ~0.05s)
+  // 3. XỬ LÝ LỖI STREAM VÀ AUTO-RECONNECT THÔNG MINH
   // ----------------------------------------------------
-  if (!Firebase.readStream(fbdoRead)) {
-    Serial.println("[LỖI STREAM] Dang ket noi lai...");
-    Firebase.beginStream(fbdoRead, "/Huy_Project/Control");
-  }
-
-  if (fbdoRead.streamAvailable()) {
-    String path = fbdoRead.dataPath(); // Trả về dạng "/Light" hoặc "/Fan"
-    String type = fbdoRead.dataType();
-
-    // Nếu thay đổi từng biến lẻ (Kiểu INT)
-    if (type == "int" || type == "double") {
-      int val = fbdoRead.intData();
-      
-      if (path == "/Light" && val != lastWebLight) {
-        digitalWrite(LIGHT_PIN, val == 1 ? HIGH : LOW);
-        lastWebLight = val;
-      } 
-      else if (path == "/Fan" && val != lastWebFan) {
-        digitalWrite(FAN_PIN, val == 1 ? HIGH : LOW);
-        lastWebFan = val;
-      } 
-      else if (path == "/Buzzer" && val != lastWebBuzzer) {
-        ledcWrite(BUZZER_PIN, val == 1 ? 128 : 0);
-        lastWebBuzzer = val;
-      } 
-      else if (path == "/AcOn") {
-        if (val != lastAcOn && lastAcOn != -1) {
-          Serial.println("\n[DEBUG-AC] WEB yeu cau BAT/TAT Dieu hoa!");
-          transmitIRCode(val == 1 ? "ON" : "OFF");
-        }
-        lastAcOn = val;
-      } 
-      else if (path == "/AcTemp") {
-        if (val != lastAcTemp && lastAcTemp != -1) {
-          if (lastAcOn == 1) { // Chỉ chỉnh nhiệt độ khi ĐH đang bật
-            Serial.println("\n[DEBUG-AC] WEB yeu cau DOI NHIET DO: " + String(val));
-            transmitIRCode(String(val));
-          }
-        }
-        lastAcTemp = val;
-      }
-    } 
-    // Xử lý lệnh Học mã IR (Kiểu STRING)
-    else if (type == "string" && path == "/LearnTarget") {
-      String val = fbdoRead.stringData();
-      if (val != "IDLE" && val != "DONE" && val != "") {
-        if (!isLearning || learnTarget != val) {
-          isLearning = true; learnTarget = val;
-          Serial.println("\n[DEBUG-IR] *** WEB YEU CAU HOC MA ***");
-        }
-      } else if (val == "IDLE" && isLearning) {
-        isLearning = false; learnTarget = "";
+  if (streamCrashed) {
+    // Nếu rớt mạng, cứ mỗi 3 giây thử nối lại 1 lần (Không làm đơ ESP32)
+    if (millis() - lastStreamReconnect > 3000) {
+      lastStreamReconnect = millis();
+      Serial.println("[DEBUG-STREAM] Dang thu ket noi lai luong Stream...");
+      if (Firebase.beginStream(fbdoRead, "/Huy_Project/Control")) {
+        streamCrashed = false;
+        Serial.println("[DEBUG-STREAM] DA KET NOI LAI THANH CONG!");
+      } else {
+        Serial.println("[LỖI STREAM] " + fbdoRead.errorReason());
       }
     }
-    // Xử lý lúc ESP32 vừa khởi động (Tải cả cục JSON về để nạp trạng thái ban đầu)
-    else if (type == "json") {
-      FirebaseJsonData jsonData;
-      fbdoRead.jsonObject().get(jsonData, "Light"); if (jsonData.success) { digitalWrite(LIGHT_PIN, jsonData.intValue == 1 ? HIGH : LOW); lastWebLight = jsonData.intValue; }
-      fbdoRead.jsonObject().get(jsonData, "Fan");   if (jsonData.success) { digitalWrite(FAN_PIN, jsonData.intValue == 1 ? HIGH : LOW); lastWebFan = jsonData.intValue; }
-      fbdoRead.jsonObject().get(jsonData, "Buzzer");if (jsonData.success) { ledcWrite(BUZZER_PIN, jsonData.intValue == 1 ? 128 : 0); lastWebBuzzer = jsonData.intValue; }
-      fbdoRead.jsonObject().get(jsonData, "AcOn");  if (jsonData.success) lastAcOn = jsonData.intValue;
-      fbdoRead.jsonObject().get(jsonData, "AcTemp");if (jsonData.success) lastAcTemp = jsonData.intValue;
+  } 
+  else {
+    // Nếu Stream đang sống, tiến hành đọc dữ liệu
+    if (!Firebase.readStream(fbdoRead)) {
+      Serial.println("\n[LỖI STREAM BẤT NGỜ] " + fbdoRead.errorReason());
+      streamCrashed = true; // Bật cờ để gọi hàm reconnect bên trên
+      lastStreamReconnect = millis();
+    }
+
+    if (fbdoRead.streamTimeout()) {
+      Serial.println("[DEBUG-STREAM] Timeout tu may chu, Firebase dang tu lam moi...");
+    }
+
+    if (fbdoRead.streamAvailable()) {
+      String path = fbdoRead.dataPath(); 
+      String type = fbdoRead.dataType();
+
+      if (type == "int" || type == "double") {
+        int val = fbdoRead.intData();
+        
+        if (path == "/Light" && val != lastWebLight) {
+          digitalWrite(LIGHT_PIN, val == 1 ? HIGH : LOW);
+          lastWebLight = val;
+        } 
+        else if (path == "/Fan" && val != lastWebFan) {
+          digitalWrite(FAN_PIN, val == 1 ? HIGH : LOW);
+          lastWebFan = val;
+        } 
+        else if (path == "/Buzzer" && val != lastWebBuzzer) {
+          ledcWrite(BUZZER_PIN, val == 1 ? 128 : 0);
+          lastWebBuzzer = val;
+        } 
+        else if (path == "/AcOn") {
+          if (val != lastAcOn && lastAcOn != -1) {
+            Serial.println("\n[DEBUG-AC] WEB yeu cau BAT/TAT Dieu hoa!");
+            transmitIRCode(val == 1 ? "ON" : "OFF");
+          }
+          lastAcOn = val;
+        } 
+        else if (path == "/AcTemp") {
+          if (val != lastAcTemp && lastAcTemp != -1) {
+            if (lastAcOn == 1) { 
+              Serial.println("\n[DEBUG-AC] WEB yeu cau DOI NHIET DO: " + String(val));
+              transmitIRCode(String(val));
+            }
+          }
+          lastAcTemp = val;
+        }
+      } 
+      else if (type == "string" && path == "/LearnTarget") {
+        String val = fbdoRead.stringData();
+        if (val != "IDLE" && val != "DONE" && val != "") {
+          if (!isLearning || learnTarget != val) {
+            isLearning = true; learnTarget = val;
+            Serial.println("\n[DEBUG-IR] *** WEB YEU CAU HOC MA ***");
+          }
+        } else if (val == "IDLE" && isLearning) {
+          isLearning = false; learnTarget = "";
+        }
+      }
+      else if (type == "json") {
+        FirebaseJsonData jsonData;
+        fbdoRead.jsonObject().get(jsonData, "Light"); if (jsonData.success) { digitalWrite(LIGHT_PIN, jsonData.intValue == 1 ? HIGH : LOW); lastWebLight = jsonData.intValue; }
+        fbdoRead.jsonObject().get(jsonData, "Fan");   if (jsonData.success) { digitalWrite(FAN_PIN, jsonData.intValue == 1 ? HIGH : LOW); lastWebFan = jsonData.intValue; }
+        fbdoRead.jsonObject().get(jsonData, "Buzzer");if (jsonData.success) { ledcWrite(BUZZER_PIN, jsonData.intValue == 1 ? 128 : 0); lastWebBuzzer = jsonData.intValue; }
+        fbdoRead.jsonObject().get(jsonData, "AcOn");  if (jsonData.success) lastAcOn = jsonData.intValue;
+        fbdoRead.jsonObject().get(jsonData, "AcTemp");if (jsonData.success) lastAcTemp = jsonData.intValue;
+      }
     }
   }
 
@@ -313,7 +338,6 @@ void loop() {
     json.set("Air/AQI", ens160.getAQI());
     json.set("Alert/Smoke", gasVal == 0 ? "DANGER" : "SAFE");
     
-    // Đẩy Cảm biến lên bằng fbdoWrite, không ảnh hưởng đến luồng nghe Web!
     Firebase.updateNode(fbdoWrite, "/Huy_Project/Current", json);
 
     if (millis() - lastUpdateHistory > 30000) {
