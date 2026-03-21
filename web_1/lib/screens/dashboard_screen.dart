@@ -165,163 +165,252 @@ class _IoTDashboardState extends State<IoTDashboard> {
           return LayoutBuilder(
             builder: (ctx, bc) {
               final W = bc.maxWidth;
+              final isDesktop = W >= 800;
               final H = bc.maxHeight;
               final pad = (W * 0.014).clamp(10.0, 18.0);
-              final gap = (W * 0.010).clamp(6.0, 12.0);
+              final gap = (W * 0.010).clamp(6.0, 16.0);
 
-              final leftW = ((W - pad * 2 - gap) * 0.38).clamp(240.0, 400.0);
               final availH = H - pad * 2;
-              final gaugeH = (availH * 0.18).clamp(90.0, 115.0);
-              final mainH = availH - gaugeH - gap;
+              final gaugeHDesktop = (availH * 0.18).clamp(90.0, 115.0);
+              final gaugeHMobile = 100.0;
+              final gaugeH = isDesktop ? gaugeHDesktop : gaugeHMobile;
 
-              final metricH = (mainH * 0.26).clamp(90.0, 140.0);
-              final acH = (mainH * 0.22).clamp(94.0, 115.0);
-              final ctrlH = (mainH * 0.26).clamp(90.0, 140.0);
-              final chartH = mainH;
+              final leftW = isDesktop ? ((W - pad * 2 - gap) * 0.38).clamp(240.0, 400.0) : (W - pad * 2);
 
-              return Padding(
-                padding: EdgeInsets.all(pad),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              final metricsDesktopH = ((availH - gaugeHDesktop - gap) * 0.26).clamp(90.0, 140.0);
+              final acDesktopH = ((availH - gaugeHDesktop - gap) * 0.22).clamp(94.0, 115.0);
+              final ctrlDesktopH = ((availH - gaugeHDesktop - gap) * 0.26).clamp(90.0, 140.0);
+
+              final metricH = isDesktop ? metricsDesktopH : 120.0;
+              final acH = isDesktop ? acDesktopH : 120.0;
+              final ctrlH = isDesktop ? ctrlDesktopH : 120.0;
+              final chartH = isDesktop ? (availH - gaugeHDesktop - gap) : 320.0;
+
+              final colChildren = [
+                SizedBox(
+                  height: gaugeH,
+                  child: Row(
+                    children: [
+                      GaugeWidget(
+                        title: "Nhiệt độ",
+                        val: currentTemp,
+                        max: 50,
+                        unit: "°C",
+                        color: Colors.orangeAccent,
+                        card: card,
+                        txt: txt,
+                        h: gaugeH,
+                        isSelected: selectedSensor == "Nhiệt độ",
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => selectedSensor = "Nhiệt độ"),
+                      ),
+                      SizedBox(width: gap),
+                      GaugeWidget(
+                        title: "Độ ẩm",
+                        val: currentHumi,
+                        max: 100,
+                        unit: "%",
+                        color: Colors.blueAccent,
+                        card: card,
+                        txt: txt,
+                        h: gaugeH,
+                        isSelected: selectedSensor == "Độ ẩm",
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => selectedSensor = "Độ ẩm"),
+                      ),
+                      SizedBox(width: gap),
+                      GaugeWidget(
+                        title: "TVOC",
+                        val: currentTvoc,
+                        max: 500,
+                        unit: "ppb",
+                        color: Colors.purple,
+                        card: card,
+                        txt: txt,
+                        h: gaugeH,
+                        isSelected: selectedSensor == "TVOC",
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => selectedSensor = "TVOC"),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: gap),
+                if (isDesktop)
+                  SizedBox(
+                    height: availH - gaugeHDesktop - gap,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: leftW,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: metricH,
+                                child: MetricGridWidget(
+                                  card: card,
+                                  txt: txt,
+                                  sub: sub,
+                                  leftW: leftW,
+                                  h: metricH,
+                                  eco2: currentEco2,
+                                  isGasWarning: isGasWarning,
+                                  aqi: aqiValue,
+                                  selectedSensor: selectedSensor,
+                                  onSensorSelected: (sensor) => setState(() => selectedSensor = sensor),
+                                ),
+                              ),
+                              SizedBox(height: gap),
+                              SizedBox(
+                                height: acH,
+                                child: AcRemoteWidget(
+                                  card: card,
+                                  txt: txt,
+                                  sub: sub,
+                                  isAcOn: isAcOn,
+                                  acTemp: acTemp,
+                                  isDarkMode: isDarkMode,
+                                  acMinTemp: acMinTemp,
+                                  acMaxTemp: acMaxTemp,
+                                  dbRef: _dbRef,
+                                  onUpdateControl: _updateControl,
+                                  onRangeSaved: (min, max) {
+                                    setState(() {
+                                      acMinTemp = min;
+                                      acMaxTemp = max;
+                                    });
+                                    if (acTemp < min) _updateControl("AcTemp", min);
+                                    if (acTemp > max) _updateControl("AcTemp", max);
+                                  },
+                                ),
+                              ),
+                              SizedBox(height: gap),
+                              SizedBox(
+                                height: ctrlH,
+                                child: ControlGridWidget(
+                                  card: card,
+                                  txt: txt,
+                                  h: ctrlH,
+                                  isLightOn: isLightOn,
+                                  isFanOn: isFanOn,
+                                  isBuzzerOn: isBuzzerOn,
+                                  onUpdateControl: _updateControl,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: gap),
+                        Expanded(
+                          child: SizedBox(
+                            height: chartH,
+                            child: ChartCardWidget(
+                              card: card,
+                              txt: txt,
+                              sub: sub,
+                              isDarkMode: isDarkMode,
+                              selectedSensor: selectedSensor,
+                              spots: parsedChartData[selectedSensor]!,
+                              isBarChart: isBarChart,
+                              selectedDate: selectedDate,
+                              onToggleChartType: () => setState(() => isBarChart = !isBarChart),
+                              onPickDate: _pickDate,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...[
                     SizedBox(
-                      height: gaugeH,
-                      child: Row(
-                        children: [
-                          GaugeWidget(
-                            title: "Nhiệt độ",
-                            val: currentTemp,
-                            max: 50,
-                            unit: "°C",
-                            color: Colors.orangeAccent,
-                            card: card,
-                            txt: txt,
-                            h: gaugeH,
-                            isSelected: selectedSensor == "Nhiệt độ",
-                            isDarkMode: isDarkMode,
-                            onTap: () => setState(() => selectedSensor = "Nhiệt độ"),
-                          ),
-                          SizedBox(width: gap),
-                          GaugeWidget(
-                            title: "Độ ẩm",
-                            val: currentHumi,
-                            max: 100,
-                            unit: "%",
-                            color: Colors.blueAccent,
-                            card: card,
-                            txt: txt,
-                            h: gaugeH,
-                            isSelected: selectedSensor == "Độ ẩm",
-                            isDarkMode: isDarkMode,
-                            onTap: () => setState(() => selectedSensor = "Độ ẩm"),
-                          ),
-                          SizedBox(width: gap),
-                          GaugeWidget(
-                            title: "TVOC",
-                            val: currentTvoc,
-                            max: 500,
-                            unit: "ppb",
-                            color: Colors.purple,
-                            card: card,
-                            txt: txt,
-                            h: gaugeH,
-                            isSelected: selectedSensor == "TVOC",
-                            isDarkMode: isDarkMode,
-                            onTap: () => setState(() => selectedSensor = "TVOC"),
-                          ),
-                        ],
+                      height: metricH,
+                      child: MetricGridWidget(
+                        card: card,
+                        txt: txt,
+                        sub: sub,
+                        leftW: leftW,
+                        h: metricH,
+                        eco2: currentEco2,
+                        isGasWarning: isGasWarning,
+                        aqi: aqiValue,
+                        selectedSensor: selectedSensor,
+                        onSensorSelected: (sensor) => setState(() => selectedSensor = sensor),
                       ),
                     ),
                     SizedBox(height: gap),
                     SizedBox(
-                      height: mainH,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: leftW,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                SizedBox(
-                                  height: metricH,
-                                  child: MetricGridWidget(
-                                    card: card,
-                                    txt: txt,
-                                    sub: sub,
-                                    leftW: leftW,
-                                    h: metricH,
-                                    eco2: currentEco2,
-                                    isGasWarning: isGasWarning,
-                                    aqi: aqiValue,
-                                    selectedSensor: selectedSensor,
-                                    onSensorSelected: (sensor) => setState(() => selectedSensor = sensor),
-                                  ),
-                                ),
-                                SizedBox(height: gap),
-                                SizedBox(
-                                  height: acH,
-                                  child: AcRemoteWidget(
-                                    card: card,
-                                    txt: txt,
-                                    sub: sub,
-                                    isAcOn: isAcOn,
-                                    acTemp: acTemp,
-                                    isDarkMode: isDarkMode,
-                                    acMinTemp: acMinTemp,
-                                    acMaxTemp: acMaxTemp,
-                                    dbRef: _dbRef,
-                                    onUpdateControl: _updateControl,
-                                    onRangeSaved: (min, max) {
-                                      setState(() {
-                                        acMinTemp = min;
-                                        acMaxTemp = max;
-                                      });
-                                      if (acTemp < min) _updateControl("AcTemp", min);
-                                      if (acTemp > max) _updateControl("AcTemp", max);
-                                    },
-                                  ),
-                                ),
-                                SizedBox(height: gap),
-                                SizedBox(
-                                  height: ctrlH,
-                                  child: ControlGridWidget(
-                                    card: card,
-                                    txt: txt,
-                                    h: ctrlH,
-                                    isLightOn: isLightOn,
-                                    isFanOn: isFanOn,
-                                    isBuzzerOn: isBuzzerOn,
-                                    onUpdateControl: _updateControl,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: gap),
-                          Expanded(
-                            child: SizedBox(
-                              height: chartH,
-                              child: ChartCardWidget(
-                                card: card,
-                                txt: txt,
-                                sub: sub,
-                                isDarkMode: isDarkMode,
-                                selectedSensor: selectedSensor,
-                                spots: parsedChartData[selectedSensor]!,
-                                isBarChart: isBarChart,
-                                selectedDate: selectedDate,
-                                onToggleChartType: () => setState(() => isBarChart = !isBarChart),
-                                onPickDate: _pickDate,
-                              ),
-                            ),
-                          ),
-                        ],
+                      height: acH,
+                      child: AcRemoteWidget(
+                        card: card,
+                        txt: txt,
+                        sub: sub,
+                        isAcOn: isAcOn,
+                        acTemp: acTemp,
+                        isDarkMode: isDarkMode,
+                        acMinTemp: acMinTemp,
+                        acMaxTemp: acMaxTemp,
+                        dbRef: _dbRef,
+                        onUpdateControl: _updateControl,
+                        onRangeSaved: (min, max) {
+                          setState(() {
+                            acMinTemp = min;
+                            acMaxTemp = max;
+                          });
+                          if (acTemp < min) _updateControl("AcTemp", min);
+                          if (acTemp > max) _updateControl("AcTemp", max);
+                        },
+                      ),
+                    ),
+                    SizedBox(height: gap),
+                    SizedBox(
+                      height: ctrlH,
+                      child: ControlGridWidget(
+                        card: card,
+                        txt: txt,
+                        h: ctrlH,
+                        isLightOn: isLightOn,
+                        isFanOn: isFanOn,
+                        isBuzzerOn: isBuzzerOn,
+                        onUpdateControl: _updateControl,
+                      ),
+                    ),
+                    SizedBox(height: gap),
+                    SizedBox(
+                      height: chartH,
+                      child: ChartCardWidget(
+                        card: card,
+                        txt: txt,
+                        sub: sub,
+                        isDarkMode: isDarkMode,
+                        selectedSensor: selectedSensor,
+                        spots: parsedChartData[selectedSensor]!,
+                        isBarChart: isBarChart,
+                        selectedDate: selectedDate,
+                        onToggleChartType: () => setState(() => isBarChart = !isBarChart),
+                        onPickDate: _pickDate,
                       ),
                     ),
                   ],
-                ),
-              );
+              ];
+
+              return isDesktop
+                  ? Padding(
+                      padding: EdgeInsets.all(pad),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: colChildren,
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.all(pad),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: colChildren,
+                      ),
+                    );
             },
           );
         },
