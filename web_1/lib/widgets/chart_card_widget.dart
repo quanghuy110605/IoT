@@ -263,23 +263,28 @@ class ChartCardWidget extends StatelessWidget {
     Color color = Colors.orangeAccent;
     if (selectedSensor == "Độ ẩm") {
       color = Colors.blueAccent;
-    } else if (selectedSensor == "Khí gas")
-      color = Colors.redAccent;
+    } else if (selectedSensor == "AQI")
+      color = Colors.green;
     else if (selectedSensor == "eCO2")
       color = Colors.teal;
     else if (selectedSensor == "TVOC")
       color = Colors.purple;
 
     double minY = 0, maxY = 10;
-    if (spots.isNotEmpty) {
-      minY = spots.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-      maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+    if (selectedSensor == "AQI") {
+      minY = 0;
+      maxY = 6;
+    } else {
+      if (spots.isNotEmpty) {
+        minY = spots.map((e) => e.y).reduce((a, b) => a < b ? a : b);
+        maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+      }
+      if (minY == maxY) {
+        minY -= 5;
+        maxY += 5;
+      }
     }
-    if (minY == maxY) {
-      minY -= 5;
-      maxY += 5;
-    }
-    final yPad = (maxY - minY) * 0.18;
+    final yPad = selectedSensor == "AQI" ? 0.5 : (maxY - minY) * 0.18;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),

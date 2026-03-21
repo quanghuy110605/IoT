@@ -125,9 +125,9 @@ class _IoTDashboardState extends State<IoTDashboard> {
           Map<String, List<FlSpot>> parsedChartData = {
             "Nhiệt độ": [],
             "Độ ẩm": [],
-            "Khí gas": [],
             "eCO2": [],
             "TVOC": [],
+            "AQI": [],
           };
 
           if (history.isNotEmpty) {
@@ -143,14 +143,14 @@ class _IoTDashboardState extends State<IoTDashboard> {
                 double h = _pd(entry['Environment']?['Humi'] ?? entry['Humi']);
                 double e = _pd(entry['Air']?['eCO2'] ?? entry['eCO2']);
                 double tv = _pd(entry['Air']?['TVOC'] ?? entry['TVOC']);
-                String s = entry['Alert']?['Smoke'] ?? entry['Smoke'] ?? "SAFE";
-                double g = (s == "DANGER" || s == "0") ? 150.0 : 50.0;
+                double vAqi = _pd(entry['Air']?['AQI'] ?? entry['AQI']);
+                if (vAqi == 0) vAqi = 1;
 
                 parsedChartData["Nhiệt độ"]!.add(FlSpot(i.toDouble(), t));
                 parsedChartData["Độ ẩm"]!.add(FlSpot(i.toDouble(), h));
                 parsedChartData["eCO2"]!.add(FlSpot(i.toDouble(), e));
                 parsedChartData["TVOC"]!.add(FlSpot(i.toDouble(), tv));
-                parsedChartData["Khí gas"]!.add(FlSpot(i.toDouble(), g));
+                parsedChartData["AQI"]!.add(FlSpot(i.toDouble(), vAqi));
                 i++;
               }
             }

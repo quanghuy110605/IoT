@@ -78,7 +78,7 @@ class MetricGridWidget extends StatelessWidget {
             padding: EdgeInsets.only(right: isLast ? 0 : 6),
             child: GestureDetector(
               onTap: () {
-                if (m.label != "AQI") onSensorSelected(m.label);
+                if (m.label != "Khí gas") onSensorSelected(m.label);
               },
               child: Container(
                 decoration: BoxDecoration(
