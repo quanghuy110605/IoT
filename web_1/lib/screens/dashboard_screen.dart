@@ -36,6 +36,18 @@ class _IoTDashboardState extends State<IoTDashboard> {
     _dbRef.child("Control/$node").set(value);
   }
 
+  DateTime? _getDateFromPushId(String pushId) {
+    if (pushId.length < 8) return null;
+    const chars = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+    int timestamp = 0;
+    for (int i = 0; i < 8; i++) {
+      int val = chars.indexOf(pushId[i]);
+      if (val < 0) return null;
+      timestamp = timestamp * 64 + val;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(timestamp);
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -131,28 +143,53 @@ class _IoTDashboardState extends State<IoTDashboard> {
           };
 
           if (history.isNotEmpty) {
-            var sortedKeys = history.keys.toList()..sort();
-            var lastKeys = sortedKeys.length > 25
-                ? sortedKeys.sublist(sortedKeys.length - 25)
-                : sortedKeys;
-            int i = 0;
-            for (var key in lastKeys) {
-              var entry = history[key];
-              if (entry != null) {
-                double t = _pd(entry['Environment']?['Temp'] ?? entry['Temp']);
-                double h = _pd(entry['Environment']?['Humi'] ?? entry['Humi']);
-                double e = _pd(entry['Air']?['eCO2'] ?? entry['eCO2']);
-                double tv = _pd(entry['Air']?['TVOC'] ?? entry['TVOC']);
-                double vAqi = _pd(entry['Air']?['AQI'] ?? entry['AQI']);
-                if (vAqi == 0) vAqi = 1;
+            Map<int, List<Map<String, double>>> hourlyData = {};
+            for (var entry in history.entries) {
+              String key = entry.key.toString();
+              DateTime? dt = _getDateFromPushId(key);
+              if (dt != null) {
+                if (dt.year == selectedDate.year &&
+                    dt.month == selectedDate.month &&
+                    dt.day == selectedDate.day) {
+                  int hour = dt.hour;
+                  hourlyData.putIfAbsent(hour, () => []);
+                  
+                  var val = entry.value;
+                  double t = _pd(val['Environment']?['Temp'] ?? val['Temp']);
+                  double h = _pd(val['Environment']?['Humi'] ?? val['Humi']);
+                  double e = _pd(val['Air']?['eCO2'] ?? val['eCO2']);
+                  double tv = _pd(val['Air']?['TVOC'] ?? val['TVOC']);
+                  double vAqi = _pd(val['Air']?['AQI'] ?? val['AQI']);
+                  if (vAqi == 0) vAqi = 1;
 
-                parsedChartData["Nhiệt độ"]!.add(FlSpot(i.toDouble(), t));
-                parsedChartData["Độ ẩm"]!.add(FlSpot(i.toDouble(), h));
-                parsedChartData["eCO2"]!.add(FlSpot(i.toDouble(), e));
-                parsedChartData["TVOC"]!.add(FlSpot(i.toDouble(), tv));
-                parsedChartData["AQI"]!.add(FlSpot(i.toDouble(), vAqi));
-                i++;
+                  hourlyData[hour]!.add({
+                    "Nhiệt độ": t,
+                    "Độ ẩm": h,
+                    "eCO2": e,
+                    "TVOC": tv,
+                    "AQI": vAqi,
+                  });
+                }
               }
+            }
+
+            var sortedHours = hourlyData.keys.toList()..sort();
+            for (var hour in sortedHours) {
+              var list = hourlyData[hour]!;
+              int count = list.length;
+              double sumT = 0, sumH = 0, sumE = 0, sumTv = 0, sumA = 0;
+              for (var d in list) {
+                sumT += d["Nhiệt độ"]!;
+                sumH += d["Độ ẩm"]!;
+                sumE += d["eCO2"]!;
+                sumTv += d["TVOC"]!;
+                sumA += d["AQI"]!;
+              }
+              parsedChartData["Nhiệt độ"]!.add(FlSpot(hour.toDouble(), sumT / count));
+              parsedChartData["Độ ẩm"]!.add(FlSpot(hour.toDouble(), sumH / count));
+              parsedChartData["eCO2"]!.add(FlSpot(hour.toDouble(), sumE / count));
+              parsedChartData["TVOC"]!.add(FlSpot(hour.toDouble(), sumTv / count));
+              parsedChartData["AQI"]!.add(FlSpot(hour.toDouble(), sumA / count));
             }
           }
 

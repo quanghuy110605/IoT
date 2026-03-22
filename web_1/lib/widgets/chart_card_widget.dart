@@ -201,7 +201,6 @@ class ChartCardWidget extends StatelessWidget {
         ? 1.0
         : ((maxY - minY) / 4).ceilToDouble();
     final groups = spots
-        .where((s) => s.x.toInt() % 2 == 0)
         .map(
           (s) => BarChartGroupData(
             x: s.x.toInt(),
@@ -316,12 +315,39 @@ class ChartCardWidget extends StatelessWidget {
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: onPickDate,
-                child: _pillBtn(
-                  Icons.calendar_today,
-                  "${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}",
-                  Colors.blueAccent,
-                  false,
-                  forceColor: Colors.blueAccent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, size: 16, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        "${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Colors.white),
+                    ],
+                  ),
                 ),
               ),
             ],
