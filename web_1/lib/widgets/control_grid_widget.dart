@@ -50,6 +50,7 @@ class ControlGridWidget extends StatelessWidget {
         Icons.wind_power_rounded,
         Colors.cyan,
         (v) => onUpdateControl("Fan", v ? 1 : 0),
+        canTurnOn: false,
       ),
       ControlItem(
         "Còi báo",
@@ -57,6 +58,7 @@ class ControlGridWidget extends StatelessWidget {
         Icons.campaign_rounded,
         Colors.red,
         (v) => onUpdateControl("Buzzer", v ? 1 : 0),
+        canTurnOn: false,
       ),
     ];
 
@@ -73,7 +75,10 @@ class ControlGridWidget extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.only(right: isLast ? 0 : 6),
             child: GestureDetector(
-              onTap: () => item.onChange(!item.isOn),
+              onTap: () {
+                if (!item.canTurnOn && !item.isOn) return;
+                item.onChange(!item.isOn);
+              },
               child: Container(
                 decoration: _boxDec(
                   active ? item.color.withValues(alpha: 0.13) : card,
@@ -105,7 +110,7 @@ class ControlGridWidget extends StatelessWidget {
                       scale: swScale,
                       child: Switch(
                         value: active,
-                        onChanged: item.onChange,
+                        onChanged: (!item.canTurnOn && !item.isOn) ? null : item.onChange,
                         activeThumbColor: item.color,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),

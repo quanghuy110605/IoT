@@ -13,5 +13,6 @@ class ControlItem {
   final IconData icon;
   final Color color;
   final void Function(bool) onChange;
-  const ControlItem(this.label, this.isOn, this.icon, this.color, this.onChange);
+  final bool canTurnOn;
+  const ControlItem(this.label, this.isOn, this.icon, this.color, this.onChange, {this.canTurnOn = true});
 }

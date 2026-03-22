@@ -236,6 +236,30 @@ void loop() {
           if (val != lastAcTemp && lastAcTemp != -1 && lastAcOn == 1) { transmitIRCode(String(val)); } lastAcTemp = val;
         }
       } 
+      else if (type == "json") {
+        FirebaseJson *json = fbdoRead.jsonObjectPtr();
+        FirebaseJsonData jsonData;
+        if (json->get(jsonData, "Light")) {
+             int val = jsonData.intValue;
+             if (val != lastWebLight) { digitalWrite(LIGHT_PIN, val == 1 ? HIGH : LOW); lastWebLight = val; }
+        }
+        if (json->get(jsonData, "Fan")) {
+             int val = jsonData.intValue;
+             if (val != lastWebFan) { digitalWrite(FAN_PIN, val == 1 ? HIGH : LOW); lastWebFan = val; }
+        }
+        if (json->get(jsonData, "Buzzer")) {
+             int val = jsonData.intValue;
+             if (val != lastWebBuzzer) { ledcWrite(BUZZER_PIN, val == 1 ? 128 : 0); lastWebBuzzer = val; }
+        }
+        if (json->get(jsonData, "AcOn")) {
+             int val = jsonData.intValue;
+             if (val != lastAcOn && lastAcOn != -1) { transmitIRCode(val == 1 ? "ON" : "OFF"); } lastAcOn = val;
+        }
+        if (json->get(jsonData, "AcTemp")) {
+             int val = jsonData.intValue;
+             if (val != lastAcTemp && lastAcTemp != -1 && lastAcOn == 1) { transmitIRCode(String(val)); } lastAcTemp = val;
+        }
+      } 
       else if (type == "string" && path == "/LearnTarget") {
         String val = fbdoRead.stringData();
         if (val != "IDLE" && val != "DONE" && val != "") {
