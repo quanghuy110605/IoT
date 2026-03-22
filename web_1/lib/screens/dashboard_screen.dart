@@ -54,6 +54,32 @@ class _IoTDashboardState extends State<IoTDashboard> {
       initialDate: selectedDate,
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: isDarkMode
+                ? const ColorScheme.dark(
+                    primary: Colors.blueAccent,
+                    onPrimary: Colors.white,
+                    surface: Color(0xFF1F2937),
+                    onSurface: Colors.white,
+                  )
+                : const ColorScheme.light(
+                    primary: Colors.blueAccent,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Colors.black87,
+                  ),
+            dialogBackgroundColor: isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blueAccent,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => selectedDate = picked);
   }
