@@ -77,20 +77,22 @@ class ChartCardWidget extends StatelessWidget {
     );
   }
 
-  FlTitlesData _titles(Color sub, double minY, double maxY, double step) =>
+  FlTitlesData _titles(Color sub, double minX, double maxX, double minY, double maxY, double stepY, double stepX) =>
       FlTitlesData(
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: 6,
+            interval: stepX,
             reservedSize: 26,
             getTitlesWidget: (v, _) {
-              final h = v.toInt();
-              if (h % 6 != 0) return const SizedBox();
+              if (v < minX || v > maxX) return const SizedBox();
+              int totalMins = v.toInt();
+              int h = totalMins ~/ 60;
+              int m = totalMins % 60;
               return Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  "${h.toString().padLeft(2, '0')}:00",
+                  "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}",
                   style: TextStyle(fontSize: 10, color: sub),
                 ),
               );
@@ -101,13 +103,16 @@ class ChartCardWidget extends StatelessWidget {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 46,
-            interval: step,
+            interval: stepY,
             getTitlesWidget: (v, meta) {
               if (v == meta.max || v == meta.min) {
                 return const SizedBox.shrink();
               }
+              String val = (selectedSensor == "AQI" || selectedSensor == "eCO2" || selectedSensor == "TVOC") 
+                  ? v.toStringAsFixed(0) 
+                  : v.toStringAsFixed(1);
               return Text(
-                v.toStringAsFixed(0),
+                val,
                 style: TextStyle(fontSize: 10, color: sub),
               );
             },
@@ -123,24 +128,27 @@ class ChartCardWidget extends StatelessWidget {
     List<FlSpot> spots,
     Color color,
     Color sub,
+    double minX,
+    double maxX,
+    double stepX,
     double minY,
     double maxY,
     double yPad,
   ) {
-    final double step = (maxY - minY <= 0)
+    final double stepY = (maxY - minY <= 0)
         ? 1.0
         : ((maxY - minY) / 4).ceilToDouble();
     return LineChart(
       LineChartData(
-        minX: 0,
-        maxX: spots.length > 1 ? spots.last.x : 24,
+        minX: minX,
+        maxX: maxX,
         minY: minY - yPad,
         maxY: maxY + yPad,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
-          horizontalInterval: step,
-          verticalInterval: 6,
+          horizontalInterval: stepY,
+          verticalInterval: stepX,
           getDrawingHorizontalLine: (_) => FlLine(
             color: Colors.black.withValues(alpha: isDarkMode ? 0.15 : 0.06),
             strokeWidth: 1,
@@ -151,7 +159,7 @@ class ChartCardWidget extends StatelessWidget {
           ),
         ),
         borderData: FlBorderData(show: false),
-        titlesData: _titles(sub, minY, maxY, step),
+        titlesData: _titles(sub, minX, maxX, minY, maxY, stepY, stepX),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
@@ -173,14 +181,23 @@ class ChartCardWidget extends StatelessWidget {
           touchTooltipData: LineTouchTooltipData(
             getTooltipItems: (pts) => pts
                 .map(
-                  (s) => LineTooltipItem(
-                    "${s.x.toInt()}:00\n${s.y.toStringAsFixed(1)}",
-                    const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  (s) {
+                    int totalMins = s.x.toInt();
+                    int h = totalMins ~/ 60;
+                    int m = totalMins % 60;
+                    String time = "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}";
+                    String val = (selectedSensor == "AQI" || selectedSensor == "eCO2" || selectedSensor == "TVOC") 
+                        ? s.y.toStringAsFixed(0) 
+                        : s.y.toStringAsFixed(1);
+                    return LineTooltipItem(
+                      "$time\n$val",
+                      const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  }
                 )
                 .toList(),
           ),
@@ -193,11 +210,14 @@ class ChartCardWidget extends StatelessWidget {
     List<FlSpot> spots,
     Color color,
     Color sub,
+    double minX,
+    double maxX,
+    double stepX,
     double minY,
     double maxY,
     double yPad,
   ) {
-    final double step = (maxY - minY <= 0)
+    final double stepY = (maxY - minY <= 0)
         ? 1.0
         : ((maxY - minY) / 4).ceilToDouble();
     final groups = spots
@@ -233,24 +253,33 @@ class ChartCardWidget extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: step,
+          horizontalInterval: stepY,
           getDrawingHorizontalLine: (_) => FlLine(
             color: Colors.black.withValues(alpha: isDarkMode ? 0.15 : 0.06),
             strokeWidth: 1,
           ),
         ),
         borderData: FlBorderData(show: false),
-        titlesData: _titles(sub, minY, maxY, step),
+        titlesData: _titles(sub, minX, maxX, minY, maxY, stepY, stepX),
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipItem: (g, gi, rod, ri) => BarTooltipItem(
-              "${g.x}:00\n${rod.toY.toStringAsFixed(1)}",
-              const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            getTooltipItem: (g, gi, rod, ri) {
+              int totalMins = g.x.toInt();
+              int h = totalMins ~/ 60;
+              int m = totalMins % 60;
+              String time = "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}";
+              String val = (selectedSensor == "AQI" || selectedSensor == "eCO2" || selectedSensor == "TVOC") 
+                  ? rod.toY.toStringAsFixed(0) 
+                  : rod.toY.toStringAsFixed(1);
+              return BarTooltipItem(
+                "$time\n$val",
+                const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            }
           ),
         ),
       ),
@@ -284,6 +313,30 @@ class ChartCardWidget extends StatelessWidget {
       }
     }
     final yPad = selectedSensor == "AQI" ? 0.5 : (maxY - minY) * 0.18;
+
+    double minX = 0, maxX = 1440;
+    if (spots.isNotEmpty) {
+      double minData = spots.first.x;
+      double maxData = spots.last.x;
+      double diff = maxData - minData;
+      if (diff < 60) {
+         minX = (minData - 5).clamp(0, 1440).toDouble();
+         maxX = (maxData + 5).clamp(0, 1440).toDouble();
+      } else if (diff < 240) {
+         minX = (minData - 15).clamp(0, 1440).toDouble();
+         maxX = (maxData + 15).clamp(0, 1440).toDouble();
+      } else {
+         minX = 0;
+         maxX = 1440;
+      }
+    }
+    if (minX >= maxX) maxX = minX + 60;
+
+    double stepX = 360;
+    double rangeX = maxX - minX;
+    if (rangeX <= 60) stepX = 10;
+    else if (rangeX <= 240) stepX = 30;
+    else if (rangeX <= 720) stepX = 120;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -355,8 +408,8 @@ class ChartCardWidget extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: isBarChart
-                ? _barChart(spots, color, sub, minY, maxY, yPad)
-                : _lineChart(spots, color, sub, minY, maxY, yPad),
+                ? _barChart(spots, color, sub, minX, maxX, stepX, minY, maxY, yPad)
+                : _lineChart(spots, color, sub, minX, maxX, stepX, minY, maxY, yPad),
           ),
         ],
       ),

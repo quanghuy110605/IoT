@@ -177,8 +177,8 @@ class _IoTDashboardState extends State<IoTDashboard> {
                 if (dt.year == selectedDate.year &&
                     dt.month == selectedDate.month &&
                     dt.day == selectedDate.day) {
-                  int hour = dt.hour;
-                  hourlyData.putIfAbsent(hour, () => []);
+                  int mOfDay = dt.hour * 60 + dt.minute;
+                  hourlyData.putIfAbsent(mOfDay, () => []);
                   
                   var val = entry.value;
                   double t = _pd(val['Environment']?['Temp'] ?? val['Temp']);
@@ -188,7 +188,7 @@ class _IoTDashboardState extends State<IoTDashboard> {
                   double vAqi = _pd(val['Air']?['AQI'] ?? val['AQI']);
                   if (vAqi == 0) vAqi = 1;
 
-                  hourlyData[hour]!.add({
+                  hourlyData[mOfDay]!.add({
                     "Nhiệt độ": t,
                     "Độ ẩm": h,
                     "eCO2": e,
@@ -199,9 +199,9 @@ class _IoTDashboardState extends State<IoTDashboard> {
               }
             }
 
-            var sortedHours = hourlyData.keys.toList()..sort();
-            for (var hour in sortedHours) {
-              var list = hourlyData[hour]!;
+            var sortedMins = hourlyData.keys.toList()..sort();
+            for (var mOfDay in sortedMins) {
+              var list = hourlyData[mOfDay]!;
               int count = list.length;
               double sumT = 0, sumH = 0, sumE = 0, sumTv = 0, sumA = 0;
               for (var d in list) {
@@ -211,11 +211,11 @@ class _IoTDashboardState extends State<IoTDashboard> {
                 sumTv += d["TVOC"]!;
                 sumA += d["AQI"]!;
               }
-              parsedChartData["Nhiệt độ"]!.add(FlSpot(hour.toDouble(), sumT / count));
-              parsedChartData["Độ ẩm"]!.add(FlSpot(hour.toDouble(), sumH / count));
-              parsedChartData["eCO2"]!.add(FlSpot(hour.toDouble(), sumE / count));
-              parsedChartData["TVOC"]!.add(FlSpot(hour.toDouble(), sumTv / count));
-              parsedChartData["AQI"]!.add(FlSpot(hour.toDouble(), sumA / count));
+              parsedChartData["Nhiệt độ"]!.add(FlSpot(mOfDay.toDouble(), sumT / count));
+              parsedChartData["Độ ẩm"]!.add(FlSpot(mOfDay.toDouble(), sumH / count));
+              parsedChartData["eCO2"]!.add(FlSpot(mOfDay.toDouble(), sumE / count));
+              parsedChartData["TVOC"]!.add(FlSpot(mOfDay.toDouble(), sumTv / count));
+              parsedChartData["AQI"]!.add(FlSpot(mOfDay.toDouble(), sumA / count));
             }
           }
 
